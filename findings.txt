@@ -1,0 +1,149 @@
+Ecommerce A/B Test Findings
+===========================
+
+Project Objective
+Assess whether the new landing page (treatment / new_page) improves conversion compared with the old landing page (control / old_page).
+
+Data Used
+- Raw experiment file: data/ab_data.csv
+- Country lookup file: data/countries.csv
+- Cleaned experiment logic: keep only rows where control users saw old_page and treatment users saw new_page
+- Postgres analysis tables: public.ab_data_clean and public.countries
+
+Final Analysis Population
+- Cleaned experiment rows: 290,587
+- Cleaned unique users: 290,585
+- Country rows: 290,586
+- Joined analysis rows before user-level deduplication: 290,589
+- User-level analysis rows after deduplication: 290,585
+
+Important Data Quality Note
+- There are 2 duplicate user IDs in the cleaned experiment data: 759899 and 773192.
+- There is 1 duplicate user ID in the countries table: 759899.
+- Because of those duplicates, a raw join slightly overstates row count.
+- Main inference was checked again on a user-level deduplicated dataset.
+- The conclusion stays the same after deduplication, so the duplicates do not change the recommendation.
+
+Executive Summary
+- The new landing page did not beat the old landing page.
+- Treatment conversion rate was slightly lower than control conversion rate.
+- The difference was not statistically significant.
+- Country-level cuts did not reveal a convincing treatment win in any major geography.
+- Recommendation: do not roll out the new landing page based on this test alone.
+
+Overall Conversion Results
+- Control users: 145,274
+- Treatment users: 145,311
+- Control conversions: 17,489
+- Treatment conversions: 17,264
+- Control conversion rate: 12.0386%
+- Treatment conversion rate: 11.8807%
+- Treatment minus control: -0.1579 percentage points
+
+Statistical Test
+- Test used: two-proportion z-test
+- z-statistic: -1.3116
+- p-value: 0.1897
+- 95% confidence interval for treatment minus control:
+  - Lower bound: -0.3939 percentage points
+  - Upper bound: 0.0781 percentage points
+
+Interpretation
+- The p-value is well above 0.05, so there is not enough evidence to say the treatment changed conversion.
+- The confidence interval includes zero, which means the true effect could be slightly negative or slightly positive.
+- The best estimate is still negative, so the observed data does not support launching the new page.
+
+Country-Level Results
+
+United States
+- Control users: 101,716
+- Treatment users: 101,906
+- Control conversion rate: 12.0630%
+- Treatment conversion rate: 11.8464%
+- Treatment minus control: -0.2166 percentage points
+
+United Kingdom
+- Control users: 36,360
+- Treatment users: 36,106
+- Control conversion rate: 12.0022%
+- Treatment conversion rate: 12.1171%
+- Treatment minus control: +0.1149 percentage points
+
+Canada
+- Control users: 7,198
+- Treatment users: 7,299
+- Control conversion rate: 11.8783%
+- Treatment conversion rate: 11.1906%
+- Treatment minus control: -0.6876 percentage points
+
+Country Interpretation
+- The UK is the only country where treatment looks marginally better.
+- The US and Canada both show lower treatment conversion.
+- Canada has the largest negative gap, but it also has the smallest sample.
+- No country result is strong enough to overturn the overall null result.
+
+Country Statistical Checks
+- Chi-square test: country vs group balance
+  - chi-square: 1.7973
+  - p-value: 0.4071
+  - interpretation: treatment and control groups are geographically balanced
+
+- Chi-square test: country vs conversion
+  - chi-square: 3.2112
+  - p-value: 0.2008
+  - interpretation: conversion differences across countries are not strong enough to be statistically compelling in this dataset
+
+Regression Analysis
+- Logistic regression with group only:
+  - treatment coefficient: -0.0150
+  - p-value: 0.1897
+
+- Logistic regression with group + country controls:
+  - treatment coefficient: -0.0150
+  - p-value: 0.1901
+
+- Logistic regression with group-country interactions:
+  - treatment main coefficient: -0.0674
+  - interaction terms are not statistically significant
+
+Regression Interpretation
+- Adding country controls does not materially change the treatment effect.
+- Interaction modeling does not show a reliable country-specific treatment lift.
+- The statistical story is consistent across all three model setups.
+
+Session Duration Results
+Timestamp was treated as a session-duration style field in mm:ss.s format.
+
+Average Session Duration By Group
+- Control average session seconds: 1,804.93
+- Treatment average session seconds: 1,801.51
+
+Average Session Duration By Group And Conversion
+- Control non-converters: 1,805.98 seconds
+- Control converters: 1,797.25 seconds
+- Treatment non-converters: 1,801.14 seconds
+- Treatment converters: 1,804.25 seconds
+
+Session Duration Interpretation
+- Session duration is very similar across control and treatment.
+- There is no clear evidence that the treatment improves engagement enough to translate into higher conversion.
+- Even where converted users stay slightly longer or shorter, the differences are small and do not support a major behavior shift.
+
+Recommended Business Conclusion
+- Keep the old landing page as the default for now.
+- Do not launch the new page based on this experiment.
+- If the team still believes the new experience has promise, revise the page and run a follow-up experiment.
+- In the next test, monitor duplicate user IDs and confirm whether the timestamp field truly represents session duration.
+
+Suggested Slide Narrative
+1. Business question: does the new landing page improve conversion?
+2. Data and experiment setup: ~290.6k cleaned records, balanced control/treatment split
+3. Overall result: treatment conversion is slightly lower than control
+4. Significance test: p-value 0.1897, no statistically significant lift
+5. Country breakdown: mixed results, no convincing regional win
+6. Engagement check: session duration is similar across groups
+7. Data quality note: tiny duplicate-user issue, conclusion unchanged after sensitivity check
+8. Recommendation: do not roll out the new page; iterate and retest
+
+Short Talk Track
+The experiment does not provide evidence that the new landing page improves conversion. Control converted at 12.04% and treatment converted at 11.88%, a difference of about -0.16 percentage points. The p-value of 0.1897 shows that this gap is not statistically significant. Country-level results are mixed, with a small positive signal in the UK but negative movement in the US and Canada. Session duration looks similar across groups, so there is no clear engagement win supporting treatment. The recommendation is to keep the current page, refine the treatment design, and retest rather than roll out now.

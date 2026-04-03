@@ -1,7 +1,7 @@
 """
 pull_from_sql.py
 ----------------
-Notebook-friendly helpers to read data from Postgres into pandas.
+Notebook-friendly helpers to read analysis-ready data from Postgres into pandas.
 
 Expects env vars (from project-root `.env`):
     PG_HOST, PG_PORT, PG_DB, PG_USER, PG_PASSWORD
@@ -12,11 +12,13 @@ Example (in a Jupyter notebook):
     import sys
     sys.path.append("../python/scripts")   # if notebook is in project root/notebooks, adjust as needed
 
-    from pull_from_sql import read_table, read_sql
+    from pull_from_sql import load_project_data, read_table, read_sql
 
-    df_ab = read_table("ab_data")          # schema defaults to PG_SCHEMA or "public"
+    df_ab = read_table("ab_data_clean")    # schema defaults to PG_SCHEMA or "public"
     df_countries = read_table("countries")
-    df_custom = read_sql("select * from public.ab_data limit 10;")
+    datasets = load_project_data()
+    df_joined = datasets["joined"]
+    df_custom = read_sql("select * from public.ab_data_clean limit 10;")
 """
 
 from __future__ import annotations
@@ -35,6 +37,9 @@ from sqlalchemy.engine import Engine
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 load_dotenv(_PROJECT_ROOT / ".env")
 load_dotenv()
+
+DEFAULT_AB_TABLE = "ab_data_clean"
+DEFAULT_COUNTRIES_TABLE = "countries"
 
 
 def _env_nonempty(key: str) -> str:
@@ -99,11 +104,45 @@ def read_table(
     return read_sql(q, engine=engine)
 
 
+def load_project_data(
+    *,
+    schema: Optional[str] = None,
+    ab_table: str = DEFAULT_AB_TABLE,
+    countries_table: str = DEFAULT_COUNTRIES_TABLE,
+    engine: Optional[Engine] = None,
+) -> dict[str, pd.DataFrame]:
+    """
+    Load the cleaned experiment table, countries lookup, and a joined analysis table.
+    """
+    eng = engine or get_engine()
+    sch = schema or os.getenv("PG_SCHEMA", "public")
+
+    df_ab = read_table(ab_table, schema=sch, engine=eng)
+    df_countries = read_table(countries_table, schema=sch, engine=eng)
+
+    joined_query = f"""
+        SELECT
+            ab.*,
+            c.country
+        FROM "{sch}"."{ab_table}" AS ab
+        LEFT JOIN "{sch}"."{countries_table}" AS c
+            ON ab.user_id = c.user_id
+    """
+    df_joined = read_sql(joined_query, engine=eng)
+
+    return {
+        "ab_data_clean": df_ab,
+        "countries": df_countries,
+        "joined": df_joined,
+    }
+
+
 def main() -> None:
     """
     Small CLI for quick checks:
-        python pull_from_sql.py table_name --schema public --limit 5
-        python pull_from_sql.py --sql "select count(*) from public.ab_data;"
+        python pull_from_sql.py ab_data_clean --schema public --limit 5
+        python pull_from_sql.py --project-data
+        python pull_from_sql.py --sql "select count(*) from public.ab_data_clean;"
     """
     import argparse
 
@@ -112,20 +151,30 @@ def main() -> None:
     parser.add_argument("--schema", default=None, help="Schema (defaults to PG_SCHEMA or public)")
     parser.add_argument("--limit", type=int, default=10, help="Limit for table reads (default: 10)")
     parser.add_argument("--sql", default=None, help="Raw SQL to run instead of reading a table")
+    parser.add_argument(
+        "--project-data",
+        action="store_true",
+        help=f"Load {DEFAULT_AB_TABLE} and {DEFAULT_COUNTRIES_TABLE}, plus their joined dataset",
+    )
     args = parser.parse_args()
 
     try:
-        if args.sql:
+        if args.project_data:
+            datasets = load_project_data(schema=args.schema)
+            for name, df in datasets.items():
+                print(f"\n{name} ({len(df):,} rows)")
+                print(df.head(args.limit).to_string(index=False))
+        elif args.sql:
             df = read_sql(args.sql)
+            print(df.head(10).to_string(index=False))
         else:
             if not args.table:
-                parser.error("Provide a table name or pass --sql")
+                parser.error("Provide a table name, pass --sql, or use --project-data")
             df = read_table(args.table, schema=args.schema, limit=args.limit)
+            print(df.head(10).to_string(index=False))
     except Exception as e:
         print(f"Error: {e}")
         sys.exit(1)
-
-    print(df.head(10).to_string(index=False))
 
 
 if __name__ == "__main__":

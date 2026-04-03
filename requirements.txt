@@ -9,3 +9,6 @@ seaborn
 statsmodels
 scipy
 scikit-learn
+ipykernel
+jupyter
+jupyterlab
