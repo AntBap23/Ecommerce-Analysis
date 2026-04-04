@@ -84,6 +84,3 @@ The main conclusion is that the new landing page does not outperform the old lan
 - Session duration is broadly similar across groups, suggesting no strong engagement lift from the treatment experience.
 - A tiny number of duplicate `user_id` records exist, but a user-level sensitivity check leads to the same conclusion.
 
-## Presentation Support
-
-Use [findings.txt](/Users/bapbap23/Desktop/Ecommerce%20Analysis/findings.txt) as the source document for generating a PowerPoint or executive summary in another tool such as Claude.
